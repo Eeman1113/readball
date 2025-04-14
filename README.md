@@ -1,2 +1,2 @@
-# readball
-read a football match 
+# Readball - Read a Football Match
+Readball is a retro-themed web app that lets you simulate and read a football match between two teams in a unique, text-based style. Inspired by old-school interfaces with a neon cyberpunk twist, it offers a fun way to imagine match outcomes without flashy graphics—just pure, immersive commentary generated in real-time. Pick your teams, hit "Start Match," and watch the drama unfold like you're reading a live feed straight out of a futuristic console.
