@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Football Match Simulation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* --- Global Styles & Variables --- */
+        :root {
+            --main-bg: #0f0f1a; /* Keep dark blue/purple background */
+            --text-color: #00f7d3; /* Keep bright cyan text/accent */
+            --secondary-text-color: #a0b0c0; /* Keep lighter grey */
+            --ui-bg: rgba(30, 30, 45, 0.7); /* Keep semi-transparent UI background */
+            --border-color: rgba(0, 247, 211, 0.3); /* Keep cyan border */
+            --hover-border-color: rgba(0, 247, 211, 0.5);
+            --glow-color: rgba(0, 247, 211, 0.5); /* Enhanced cyan glow */
+            --highlight-color: #ffffff; /* Use White for score highlight */
+            --highlight-glow-color: rgba(255, 255, 255, 0.6); /* White glow for score */
+             /* Grid pattern with cyan tint */
+            --crt-lines: url("data:image/svg+xml,%3Csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='smallGrid' width='6' height='6' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 6 0 L 0 0 0 6' fill='none' stroke='rgba(0, 255, 255, 0.06)' stroke-width='1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23smallGrid)'/%3E%3C/svg%3E");
+            /* Noise Texture */
+            --noise-texture: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAUVBMVEWFhYWDg4N3d3dtbW17e3t1dXVhYWHFxcWgoKCjo6NhYWHKysqDg4N5eXlwcHCvr6/JycmqqqrGxsavrq/DwsPS0tJrcHCnp6d3d3d5eXlwcHCjo6NPT0/p6uq+G2XVAAAAZklEQVR4nO3PNw7DQAxE0VIFiyiKigDN/7udbp3pKu74f6z4a+Ab9Zp1U9p/7L17Y7OdjQUUhYUP4LsEg9kQaAnE89o8E9ALNtNCDSAi+6fP4G69LAnE6C6j4uM7Nj/kMZ84zEAP6SHtNj8D5iYAAAAASUVORK5CYII=");
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--main-bg);
+            color: var(--text-color); /* Default to cyan */
+            /* Apply Pixel Font */
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px; /* Adjust for pixel font */
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+            position: relative;
+            image-rendering: pixelated; /* Ensure pixelation */
+        }
+
+        /* --- Reintroduced CRT Screen Effects --- */
+        body::before { /* Grid */
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: var(--crt-lines);
+            pointer-events: none;
+            z-index: 2;
+            opacity: 0.7; /* Visible grid */
+        }
+
+        body::after { /* Scanlines, Color Bleed, Noise */
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background:
+                var(--noise-texture), /* Noise layer */
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), /* Horizontal scanlines */
+                linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 255, 0.03), rgba(0, 0, 255, 0.05)); /* Vertical color bleed (subtle) */
+            background-size: auto, 100% 3px, 4px 100%;
+            pointer-events: none;
+            z-index: 2;
+            animation: flicker 0.1s infinite; /* Faster flicker */
+            opacity: 0.9;
+        }
+
+        @keyframes flicker { /* Pronounced flicker */
+            0% { opacity: 0.85; }
+            30% { opacity: 0.95; }
+            70% { opacity: 0.8; }
+            100% { opacity: 0.9; }
+        }
+
+        .scanline { /* Moving scanline */
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 4px; /* Thicker */
+            background: rgba(0, 255, 255, 0.1); /* Faint cyan */
+            z-index: 3;
+            animation: scanline 5s linear infinite; /* Faster */
+            pointer-events: none;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(0vh); }
+            100% { transform: translateY(100vh); }
+        }
+
+        /* CRT Turn-on Animation */
+        .crt-effect { /* Added back */
+            animation: turn-on 2.5s ease-out;
+        }
+
+        @keyframes turn-on { /* Dramatic turn-on */
+            0% { transform: scale(1, 0.01); filter: brightness(30); opacity: 0; }
+            10% { transform: scale(1.3, 0.01); filter: brightness(30); opacity: 0.8; }
+            30% { transform: scale(1, 1); filter: brightness(8); opacity: 1; }
+            100% { filter: brightness(1) contrast(1); }
+        }
+
+
+        /* --- Layout & Containers --- */
+        .container {
+            max-width: 700px;
+            margin: 10px auto;
+            padding: 25px;
+            background-color: rgba(0, 15, 15, 0.5); /* Dark cyan tint background */
+            border: 2px solid var(--border-color); /* Use cyan border color */
+            box-shadow: 0 0 18px 6px var(--glow-color), inset 0 0 12px 3px rgba(0,0,0,0.6); /* Enhanced glow */
+            position: relative;
+            z-index: 1;
+            border-radius: 0; /* Sharp corners */
+        }
+
+        h1, h2, h3 {
+            color: var(--text-color); /* Cyan */
+            text-align: center;
+            /* Enhanced Text Glow */
+            text-shadow: 0 0 6px var(--glow-color), 0 0 12px var(--glow-color), 0 0 18px var(--glow-color);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 25px;
+            font-weight: normal; /* Pixel font is already bold */
+        }
+        h1 { font-size: 1.8em; }
+        h3 { font-size: 1.2em; margin-top: 25px; margin-bottom: 15px;}
+
+        /* --- Loading Screen --- */
+        #loading-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--main-bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000;
+            color: var(--text-color); /* Cyan */
+        }
+        .loading-text {
+            margin-top: 25px;
+            font-size: 1.5em;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px var(--glow-color);
+        }
+        .loading-progress {
+            width: 350px; height: 25px;
+            background-color: #1e1e2d; /* Darker UI bg */
+            margin-top: 25px;
+            position: relative; overflow: hidden;
+            border: 2px solid var(--text-color); /* Cyan border */
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.7);
+            border-radius: 0; /* Sharp corners */
+        }
+        .progress-bar {
+            height: 100%; width: 0%;
+            background-color: var(--text-color);
+            box-shadow: 0 0 12px var(--glow-color); /* Stronger bar glow */
+            transition: width 0.2s linear;
+        }
+
+        /* --- Team Selection --- */
+        .team-selection {
+            display: flex; justify-content: space-around; align-items: center;
+            margin: 30px 0; flex-wrap: wrap;
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 15px 0;
+            border: 1px dashed var(--border-color); /* Cyan dashed border */
+            border-radius: 0;
+        }
+         .team-selection > div { margin: 10px; }
+        select {
+            background-color: #1e1e2d; /* Darker UI bg */
+            color: var(--text-color);
+            border: 1px solid var(--text-color);
+            padding: 8px 10px;
+            font-family: 'Press Start 2P', monospace; /* Pixel font */
+            font-size: 0.9em;
+            outline: none;
+            border-radius: 0; /* Sharp corners */
+        }
+         label { margin-right: 10px; color: var(--text-color); } /* Cyan label */
+
+        /* --- Match Interface --- */
+        .scoreboard {
+            display: flex; justify-content: space-around; align-items: center;
+            padding: 15px; margin: 25px 0;
+            border: 2px solid var(--border-color); /* Cyan border */
+            background-color: rgba(0, 0, 0, 0.6);
+            box-shadow: 0 0 12px 4px var(--glow-color); /* Stronger scoreboard glow */
+            border-radius: 0;
+        }
+        .team {
+            text-align: center;
+            font-size: 1.1em;
+            flex: 1; word-wrap: break-word;
+            color: var(--text-color); /* Cyan */
+            text-shadow: 0 0 6px var(--glow-color); /* Stronger glow */
+        }
+        .score {
+            font-size: 2.2em;
+            flex: 0 0 auto; padding: 0 25px;
+            text-shadow: 0 0 10px var(--highlight-glow-color), 0 0 18px var(--highlight-glow-color); /* Strong white glow */
+            color: var(--highlight-color); /* White score */
+        }
+        .time {
+            text-align: center;
+            font-size: 1.3em;
+            margin: 25px 0;
+            color: var(--text-color); /* Cyan time */
+            text-shadow: 0 0 8px var(--glow-color); /* Stronger time glow */
+        }
+
+        /* Status Indicator */
+        .status-indicator {
+            display: flex; align-items: center; justify-content: center;
+            margin: 20px 0;
+        }
+        .status-dot {
+            width: 10px; height: 10px;
+            border-radius: 0; /* Square dot */
+            background-color: #555; margin-right: 8px;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid rgba(0, 255, 255, 0.3); /* Cyan border */
+        }
+        .live .status-dot {
+            background-color: var(--text-color); /* Cyan */
+            box-shadow: 0 0 10px var(--glow-color); /* Stronger glow */
+            animation: blink 0.8s infinite steps(1, end); /* Stepped blink */
+        }
+        .paused .status-dot {
+             background-color: #ffff00; /* Yellow */
+             box-shadow: 0 0 10px rgba(255, 255, 0, 0.7);
+             animation: none; opacity: 0.9;
+             border-color: rgba(255, 255, 0, 0.5);
+        }
+         .ended .status-dot {
+             background-color: #ff0000; /* Red */
+             box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+             animation: none; opacity: 0.8;
+             border-color: rgba(255, 0, 0, 0.5);
+        }
+        @keyframes blink {
+            50% { opacity: 0.3; }
+        }
+        .live-text { text-transform: uppercase; font-size: 1.1em; color: var(--text-color); text-shadow: 0 0 6px var(--glow-color); }
+
+        /* Commentary Box */
+        .commentary {
+            height: 280px;
+            overflow-y: auto; padding: 15px;
+            border: 1px solid var(--border-color); /* Cyan border */
+            margin-bottom: 25px;
+            background-color: rgba(0, 0, 0, 0.75); /* Darker */
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.7);
+            border-radius: 0;
+        }
+        .commentary p {
+            margin: 6px 0; line-height: 1.6;
+            font-size: 0.9em;
+            word-wrap: break-word;
+            color: var(--secondary-text-color); /* Default grey */
+        }
+        /* Style important commentary */
+        .commentary p[style*="font-weight: bold"] { /* Goals */
+             color: var(--highlight-color); /* White */
+             text-shadow: 0 0 6px var(--highlight-glow-color);
+        }
+         .commentary p[style*="font-style: italic"] { /* AI */
+             color: #80ffff; /* Lighter cyan */
+             text-shadow: 0 0 5px rgba(128, 255, 255, 0.6);
+         }
+         .commentary p[style*="color: rgb(240, 230, 140)"] { /* Yellow cards etc */
+              text-shadow: 0 0 5px rgba(240, 230, 140, 0.5);
+         }
+
+
+        /* Control Panel & Buttons */
+        .control-panel {
+            display: flex; justify-content: center; flex-wrap: wrap;
+            margin: 25px 0; padding: 10px 0;
+             border-top: 1px dashed var(--border-color); /* Cyan dashed border */
+             border-bottom: 1px dashed var(--border-color);
+        }
+        button { /* Reverted to pixel button style */
+            background-color: #1e1e2d; /* Darker UI bg */
+            color: var(--text-color);
+            border: 1px solid var(--text-color); /* Cyan border */
+            padding: 10px 18px;
+            margin: 6px; cursor: pointer;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.9em;
+            transition: all 0.15s ease;
+            text-transform: uppercase;
+            box-shadow: 2px 2px 0px rgba(0, 255, 255, 0.3); /* Cyan offset shadow */
+            border-radius: 0; /* Sharp corners */
+        }
+        button:hover:not(:disabled) {
+            background-color: var(--text-color); /* Cyan background */
+            color: var(--main-bg); /* Black text */
+            box-shadow: 0 0 12px var(--glow-color), 2px 2px 0px rgba(0, 0, 0, 0.5); /* Stronger hover glow */
+            transform: translate(-1px, -1px); /* Slight lift */
+        }
+         button:active:not(:disabled) {
+             transform: translate(1px, 1px); /* Push effect */
+             box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+         }
+        button:disabled {
+            opacity: 0.4; cursor: not-allowed;
+            background-color: #1e1e2d;
+            border-color: rgba(0, 255, 255, 0.3);
+            color: rgba(0, 255, 255, 0.4);
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Highlights Section */
+        .highlights {
+            padding: 15px; border: 1px dashed var(--highlight-color); /* White dashed border */
+            margin-top: 25px; display: none;
+            background-color: rgba(10, 10, 10, 0.4); /* Dark background */
+            box-shadow: 0 0 12px 3px var(--highlight-glow-color); /* White glow */
+            border-radius: 0;
+        }
+        .highlight-entry {
+            padding: 6px 8px; margin: 6px 0;
+            border-left: 4px solid var(--highlight-color); /* White border */
+            font-size: 0.9em;
+            background-color: rgba(255,255,255,0.05); /* Subtle white background */
+            color: var(--secondary-text-color);
+        }
+        .star-rating {
+            color: var(--highlight-color); margin-left: 8px; /* White stars */
+            text-shadow: 0 0 6px var(--highlight-glow-color);
+        }
+
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <h1>FOOTBALL SIMULATOR v1.0</h1>
+        <div class="loading-text">INITIALIZING SYSTEM...</div>
+        <div class="loading-progress">
+            <div class="progress-bar" id="loading-bar"></div>
+        </div>
+    </div>
+
+    <div class="container crt-effect" id="main-content" style="display:none;">
+        <div class="scanline"></div>
+
+        <h1>FOOTBALL MATCH SIMULATOR</h1>
+        <div class="team-selection" id="team-selection">
+            <div>
+                <label for="home-team">HOME:</label>
+                <select id="home-team">
+                    <option value="Arsenal">Arsenal</option>
+                    <option value="Chelsea">Chelsea</option>
+                    <option value="Liverpool">Liverpool</option>
+                    <option value="Man City" selected>Man City</option>
+                    <option value="Man Utd">Man Utd</option>
+                    <option value="Spurs">Spurs</option>
+                </select>
+            </div>
+            <div>
+                <label for="away-team">AWAY:</label>
+                <select id="away-team">
+                    <option value="Arsenal">Arsenal</option>
+                    <option value="Chelsea">Chelsea</option>
+                    <option value="Liverpool" selected>Liverpool</option>
+                    <option value="Man City">Man City</option>
+                    <option value="Man Utd">Man Utd</option>
+                    <option value="Spurs">Spurs</option>
+                </select>
+            </div>
+        </div>
+        <div class="control-panel" id="start-panel">
+            <button id="start-match">START MATCH</button>
+        </div>
+        <div id="match-container" style="display:none;">
+            <div class="scoreboard">
+                <div class="team" id="home-team-name">HOME</div>
+                <div class="score">
+                    <span id="home-score">0</span>-<span id="away-score">0</span> </div>
+                <div class="team" id="away-team-name">AWAY</div>
+            </div>
+            <div class="status-indicator" id="status-indicator">
+                <div class="status-dot"></div>
+                <div class="live-text" id="live-text">SELECT TEAMS</div>
+            </div>
+            <div class="time" id="match-time">00:00</div>
+            <h3>LIVE COMMENTARY</h3>
+            <div class="commentary" id="commentary-box"></div>
+            <div class="control-panel">
+                <button id="pause-match" disabled>PAUSE</button>
+                <button id="resume-match" disabled>RESUME</button>
+                <button id="speed-up" disabled>SPD+</button> <button id="slow-down" disabled>SPD-</button> <button id="reset-match" disabled>RESET</button>
+            </div>
+            <div class="highlights" id="highlights-container">
+                <h3>MATCH HIGHLIGHTS</h3>
+                <div id="highlights-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration Variables ---
+        const MATCH_DURATION = 90;
+        const BASE_INTERVAL = 2000; // Base time (ms) between ticks
+        const MAX_INTERVAL = 5000; // Slowest speed
+        const MIN_INTERVAL = 250;  // Fastest speed
+        const API_KEY = "YOUR_API_KEY"; // <<< IMPORTANT: REPLACE WITH YOUR GEMINI API KEY >>>
+
+        // --- State Variables ---
+        let currentInterval = BASE_INTERVAL;
+        let currentMinute = 0;
+        let seconds = 0;
+        let homeScore = 0;
+        let awayScore = 0;
+        let isMatchRunning = false;
+        let isMatchPaused = false;
+        let isMatchOver = false;
+        let matchTimer = null;
+        let commentaryLog = [];
+        let highlightEntries = [];
+        let homeTeam = ""; // Display name (e.g., "Man City")
+        let awayTeam = ""; // Display name
+        let selectedHomeTeam = ""; // Key used in `teams` object (matches dropdown value)
+        let selectedAwayTeam = ""; // Key used in `teams` object
+
+        // --- Team Data ---
+        // Keys match the dropdown values
+        const teams = {
+            "Man City": {
+                strength: 90, possession: 65, passing: 88, shooting: 85, defending: 82,
+                keyPlayers: ["De Bruyne", "Haaland", "Foden", "Rodri", "Dias", "Silva", "Grealish", "Walker"]
+            },
+            "Liverpool": {
+                strength: 88, possession: 60, passing: 85, shooting: 84, defending: 80,
+                keyPlayers: ["Salah", "Diaz", "Van Dijk", "Trent A-A", "Alisson", "Mac Allister", "Nunez", "Jota"]
+            },
+            "Arsenal": {
+                strength: 87, possession: 58, passing: 84, shooting: 82, defending: 84,
+                keyPlayers: ["Saka", "Odegaard", "Rice", "Saliba", "Gabriel", "Martinelli", "Havertz", "White"]
+            },
+            "Man Utd": {
+                strength: 83, possession: 52, passing: 80, shooting: 81, defending: 78,
+                keyPlayers: ["Fernandes", "Rashford", "Martinez", "Onana", "Mainoo", "Mount", "Garnacho", "Hojlund"]
+            },
+            "Chelsea": {
+                strength: 82, possession: 55, passing: 82, shooting: 78, defending: 80,
+                keyPlayers: ["Palmer", "Enzo", "Caicedo", "James", "Nkunku", "Jackson", "Mudryk", "Disasi"]
+            },
+            "Spurs": {
+                strength: 81, possession: 54, passing: 81, shooting: 82, defending: 78,
+                keyPlayers: ["Son", "Richarlison", "Romero", "Maddison", "Bissouma", "Vicario", "Kulusevski", "Porro"]
+            }
+        };
+
+        // --- Match Event Commentary Templates ---
+        // (Templates remain the same)
+        const events = {
+            possession: [
+                "{{team}} controlling the ball well in midfield.",
+                "Good spell of possession from {{team}}.",
+                "{{team}} maintaining control, looking for an opening.",
+                "{{player}} dictating the tempo for {{team}}.",
+                "{{team}} patiently building from the back.",
+                "{{player}} showing neat footwork for {{team}}."
+            ],
+            attack: [
+                "{{team}} pushing forward with intent.",
+                "{{player}} making a surging run down the flank for {{team}}.",
+                "Dangerous attack building for {{team}}.",
+                "{{player}} finding space in the attacking third for {{team}}.",
+                "{{team}} moving the ball quickly into {{opposition_team}}'s half.",
+                "{{player}} looking to thread a pass for {{team}}."
+            ],
+            chance: [
+                "{{player}} finds space in the box for {{team}}!",
+                "Big chance for {{team}}! {{player}} is through!",
+                "{{player}} trying to unlock the defence for {{team}}.",
+                "Opportunity opens up for {{team}} as {{player}} receives the ball.",
+                "{{team}} threatening now, {{player}} in a dangerous area.",
+                "Can {{player}} make something happen for {{team}}?"
+            ],
+            shot: [
+                "SHOT! {{player}} lets fly for {{team}}!",
+                "{{player}} tries his luck from distance for {{team}}!",
+                "Effort from {{player}} for {{team}}!",
+                "{{player}} pulls the trigger inside the area for {{team}}!",
+                "Shot on target by {{player}} for {{team}}!",
+                "{{player}} strikes it towards goal for {{team}}!"
+            ],
+            goal: [
+                "GOAAAAAL! {{player}} SCORES FOR {{team}}!",
+                "GOAL! Brilliant finish by {{player}} for {{team}}! Clinical!",
+                "GOAL! {{player}} finds the back of the net for {{team}}!",
+                "GOAL! What a strike from {{player}} for {{team}}!",
+                "GOAL! {{player}} breaks the deadlock for {{team}}!",
+                "GOAL! Fantastic goal by {{player}} for {{team}}! Superb!"
+            ],
+            save: [
+                "Great save by the {{team}} goalkeeper to deny {{opposition_player}}!",
+                "The {{team}} keeper makes a crucial stop!",
+                "Brilliant goalkeeping from {{team}}!",
+                "Superb reflexes from the {{team}} keeper!",
+                "Fantastic stop from the {{team}} goalkeeper!",
+                "Denied! What a save from the {{team}} goalkeeper!"
+            ],
+            miss: [
+                "Just wide from {{player}} for {{team}}! So close!",
+                "{{player}} puts it over the bar for {{team}}! Should have done better!",
+                "Close! {{player}} couldn't find the target for {{team}}!",
+                "Not far away from {{player}} for {{team}}!",
+                "{{player}} drags the shot wide for {{team}}!",
+                "Agonisingly close! {{player}} nearly scores for {{team}}!"
+            ],
+            defense: [
+                "Excellent defending from {{team}}.",
+                "{{player}} with a vital interception for {{team}}.",
+                "{{team}} standing firm at the back.",
+                "{{player}} reads the danger and clears for {{team}}.",
+                "Solid defensive organisation by {{team}}.",
+                "{{player}} making a strong tackle for {{team}}."
+            ],
+            foul: [
+                "Foul conceded by {{player}} of {{team}}.",
+                "Referee blows for a foul against {{player}} of {{team}}.",
+                "Free kick awarded to {{opposition_team}} after a challenge by {{player}}.",
+                "{{player}} brings down {{opposition_player}}. Foul given against {{team}}.",
+                "Late tackle from {{player}} of {{team}}. That'll be a free kick.",
+                "{{opposition_player}} fouled by {{player}} of {{team}}."
+            ],
+            yellow: [
+                "YELLOW CARD! {{player}} of {{team}} goes into the referee's book.",
+                "Caution for {{player}} of {{team}} for that cynical foul.",
+                "The referee shows {{player}} of {{team}} a yellow card.",
+                "{{player}} of {{team}} is booked for dissent.",
+                "Yellow card brandished to {{player}} of {{team}}.",
+                "A clear booking for {{player}} of {{team}}."
+            ],
+            corner: [
+                "Corner kick awarded to {{team}}.",
+                "{{team}} wins a corner after good pressure.",
+                "Deflected out for a {{team}} corner.",
+                "{{team}} with a chance from the set piece.",
+                "Corner opportunity for {{team}}.",
+                "{{player}} will take the corner for {{team}}."
+            ],
+            halftime: [
+                "The referee blows the whistle for HALF TIME.",
+                "That's halftime. {{home_team}} {{home_score}} - {{away_score}} {{away_team}}.",
+                "End of the first 45 minutes. {{home_team}} {{home_score}}, {{away_team}} {{away_score}}.",
+                "Halftime whistle blows. {{home_score}}-{{away_score}} at the break.",
+                "The teams head into the tunnel. Halftime score: {{home_team}} {{home_score}}-{{away_score}} {{away_team}}.",
+                "HT: {{home_team}} {{home_score}} - {{away_score}} {{away_team}}."
+            ],
+            fulltime: [
+                "FULL TIME! And that's the final whistle! {{home_team}} {{home_score}} - {{away_score}} {{away_team}}.",
+                "The referee ends the match. Final score: {{home_team}} {{home_score}}-{{away_score}} {{away_team}}.",
+                "It's all over! {{home_team}} {{home_score}}-{{away_score}} {{away_team}}.",
+                "The match concludes with the scoreline {{home_score}}-{{away_score}}.",
+                "Full time here at the stadium. {{home_team}} {{home_score}}, {{away_team}} {{away_score}}.",
+                "FT: {{home_team}} {{home_score}} - {{away_score}} {{away_team}}."
+            ]
+        };
+
+
+        // --- DOM Element References ---
+        // (References remain the same)
+        const commentaryBox = document.getElementById('commentary-box');
+        const homeScoreElement = document.getElementById('home-score');
+        const awayScoreElement = document.getElementById('away-score');
+        const matchTimeElement = document.getElementById('match-time');
+        const homeTeamNameElement = document.getElementById('home-team-name');
+        const awayTeamNameElement = document.getElementById('away-team-name');
+        const highlightsContainer = document.getElementById('highlights-container');
+        const highlightsListElement = document.getElementById('highlights-list');
+        const pauseButton = document.getElementById('pause-match');
+        const resumeButton = document.getElementById('resume-match');
+        const speedUpButton = document.getElementById('speed-up');
+        const slowDownButton = document.getElementById('slow-down');
+        const resetMatchButton = document.getElementById('reset-match');
+        const startMatchButton = document.getElementById('start-match');
+        const homeTeamSelect = document.getElementById('home-team');
+        const awayTeamSelect = document.getElementById('away-team');
+        const teamSelection = document.getElementById('team-selection');
+        const startPanel = document.getElementById('start-panel');
+        const matchContainer = document.getElementById('match-container');
+        const loadingScreen = document.getElementById('loading-screen');
+        const loadingBar = document.getElementById('loading-bar');
+        const mainContent = document.getElementById('main-content');
+        const statusIndicator = document.getElementById('status-indicator');
+        const liveText = document.getElementById('live-text');
+
+        // --- Utility Functions ---
+        // (Functions getRandomItem, getRandomNumber, formatTime, updateStatus, getTeamPlayer remain the same)
+         function getRandomItem(array) {
+            if (!array || array.length === 0) return "";
+            return array[Math.floor(Math.random() * array.length)];
+        }
+         function getRandomNumber(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+         function formatTime(minutes, seconds) {
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+         function updateStatus(status) {
+            statusIndicator.className = 'status-indicator ' + status;
+            switch (status) {
+                case 'live': liveText.textContent = "LIVE"; break;
+                case 'paused': liveText.textContent = "PAUSED"; break;
+                case 'ended': liveText.textContent = "FULL TIME"; break;
+                default: liveText.textContent = "SELECT TEAMS";
+            }
+        }
+        function getTeamPlayer(teamDisplayName) {
+             const teamKey = teamDisplayName;
+             if (teams[teamKey] && teams[teamKey].keyPlayers && teams[teamKey].keyPlayers.length > 0) {
+                 return getRandomItem(teams[teamKey].keyPlayers);
+             }
+             console.warn(`No key players found for team key: ${teamKey}`);
+             return "Player";
+         }
+
+
+        /**
+         * Adds a commentary entry to the log and the display box.
+         */
+        function addCommentary(text, timeStr, importance = 1, isAI = false) {
+            const commentElement = document.createElement('p');
+            let prefix = isAI ? "[AI]" : `[${timeStr}]`;
+            commentElement.textContent = `${prefix} ${text}`;
+
+            // Apply inline styles for specific colors (CSS handles base look)
+             if (importance >= 5) { // Goal
+                 commentElement.style.color = 'var(--highlight-color)'; // White
+                 // Bold might not render well in pixel font
+             } else if (importance === 4) { // AI / FT
+                 commentElement.style.color = '#80ffff'; // Lighter Cyan
+                 // Italic might not render well
+             } else if (importance === 3) { // Shots, Saves, Yellows, Misses, HT
+                  commentElement.style.color = '#ffffaa'; // Lighter Yellow
+             }
+             // Importance 1 & 2 use default text color (secondary grey)
+
+            commentaryBox.appendChild(commentElement);
+            commentaryBox.scrollTop = commentaryBox.scrollHeight; // Auto-scroll
+
+            commentaryLog.push({ text, time: timeStr, importance, isAI });
+            if (importance >= 3) {
+                highlightEntries.push({ text, time: timeStr, importance, isAI });
+            }
+        }
+
+        // --- Gemini API Integration ---
+        // (Function getAICommentary remains the same logic)
+        async function getAICommentary(scoringTeam, scoringPlayer, opposingTeam, minute, currentHomeScore, currentAwayScore) {
+            if (!API_KEY || API_KEY === "YOUR_API_KEY") {
+                console.warn("Gemini API key not set. Skipping AI commentary.");
+                addCommentary(`[System] AI commentary unavailable (API key missing).`, formatTime(minute, seconds), 1);
+                return;
+            }
+            const prompt = `Generate a short, exciting, retro pixel game style football commentary paragraph (max 2 sentences, under 120 characters) for a goal scored by ${scoringPlayer} (${scoringTeam}) against ${opposingTeam} in the ${minute}' minute. Score: ${selectedHomeTeam} ${currentHomeScore}-${currentAwayScore} ${selectedAwayTeam}. Be concise and punchy.`;
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('Gemini API Error:', response.status, errorData);
+                    addCommentary(`[System] AI commentary failed (API Error: ${response.status}).`, formatTime(minute, seconds), 1);
+                    return;
+                }
+                const data = await response.json();
+                const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (generatedText) {
+                    addCommentary(generatedText.trim(), formatTime(minute, seconds), 4, true);
+                } else {
+                    console.warn("Gemini API response issue:", data);
+                    addCommentary(`[System] AI commentary format error.`, formatTime(minute, seconds), 1);
+                }
+            } catch (error) {
+                console.error('Error fetching AI commentary:', error);
+                addCommentary(`[System] AI commentary request failed.`, formatTime(minute, seconds), 1);
+            }
+        }
+
+
+        // --- Core Simulation Logic ---
+        // (Function generateMatchEvent remains the same logic)
+         function generateMatchEvent() {
+            if (!teams[selectedHomeTeam] || !teams[selectedAwayTeam]) {
+                console.error("Team data missing for simulation:", selectedHomeTeam, selectedAwayTeam);
+                pauseMatch();
+                addCommentary("[System Error] Team data missing. Sim paused.", formatTime(currentMinute, seconds), 5);
+                return;
+            }
+            const homePossessionFactor = teams[selectedHomeTeam].possession + getRandomNumber(-10, 10);
+            const awayPossessionFactor = teams[selectedAwayTeam].possession + getRandomNumber(-10, 10);
+            const isHomeTeamEvent = Math.random() * (homePossessionFactor + awayPossessionFactor) < homePossessionFactor;
+
+            const attackingTeamDisplay = isHomeTeamEvent ? homeTeam : awayTeam;
+            const defendingTeamDisplay = isHomeTeamEvent ? awayTeam : homeTeam;
+            const attackingTeamKey = isHomeTeamEvent ? selectedHomeTeam : selectedAwayTeam;
+            const defendingTeamKey = isHomeTeamEvent ? selectedAwayTeam : selectedHomeTeam;
+
+            const attackingPlayer = getTeamPlayer(attackingTeamDisplay);
+            const defendingPlayer = getTeamPlayer(defendingTeamDisplay);
+
+            const randomFactor = Math.random() * 100;
+            let eventType = 'possession';
+            let eventText = "";
+            let eventImportance = 1;
+
+            const attackChance = 40 + (teams[attackingTeamKey].strength - teams[defendingTeamKey].strength) / 3;
+            const createChanceThreshold = 60 + (teams[attackingTeamKey].passing - teams[defendingTeamKey].defending) / 4;
+            const shotThreshold = 75 + (teams[attackingTeamKey].shooting - 75) / 2;
+            const foulChance = 12;
+            const yellowCardChance = 18;
+
+            if (randomFactor < attackChance) {
+                eventType = 'attack';
+                eventText = getRandomItem(events.attack)
+                    .replace('{{team}}', attackingTeamDisplay)
+                    .replace('{{player}}', attackingPlayer)
+                    .replace('{{opposition_team}}', defendingTeamDisplay);
+                eventImportance = 2;
+
+                if (randomFactor < createChanceThreshold * (attackChance / 100)) {
+                    eventType = 'chance';
+                    eventText = getRandomItem(events.chance)
+                        .replace('{{team}}', attackingTeamDisplay)
+                        .replace('{{player}}', attackingPlayer);
+                    eventImportance = 2;
+
+                    setTimeout(() => {
+                        if (!isMatchRunning || isMatchPaused || isMatchOver) return;
+                        if (Math.random() * 100 < shotThreshold) {
+                            const shotText = getRandomItem(events.shot)
+                                .replace('{{team}}', attackingTeamDisplay)
+                                .replace('{{player}}', attackingPlayer);
+                            addCommentary(shotText, formatTime(currentMinute, seconds), 3);
+
+                            setTimeout(() => {
+                                if (!isMatchRunning || isMatchPaused || isMatchOver) return;
+                                const baseScoreChance = 15 + (teams[attackingTeamKey].shooting - teams[defendingTeamKey].defending) / 1.5 + (teams[attackingTeamKey].strength - teams[defendingTeamKey].strength) / 3;
+                                const scoreChance = Math.min(Math.max(baseScoreChance + getRandomNumber(-10, 15), 5), 50);
+                                const saveChance = 45 + (teams[defendingTeamKey].defending - teams[attackingTeamKey].shooting) / 2;
+                                const outcomeRoll = Math.random() * 100;
+
+                                if (outcomeRoll < scoreChance) {
+                                    if (isHomeTeamEvent) { homeScore++; homeScoreElement.innerText = homeScore; }
+                                    else { awayScore++; awayScoreElement.innerText = awayScore; }
+                                    const goalText = getRandomItem(events.goal)
+                                        .replace('{{team}}', attackingTeamDisplay)
+                                        .replace('{{player}}', attackingPlayer);
+                                    addCommentary(goalText, formatTime(currentMinute, seconds), 5);
+                                    getAICommentary(attackingTeamDisplay, attackingPlayer, defendingTeamDisplay, currentMinute, homeScore, awayScore);
+                                } else if (outcomeRoll < scoreChance + saveChance) {
+                                    const saveText = getRandomItem(events.save)
+                                        .replace('{{team}}', defendingTeamDisplay)
+                                        .replace('{{opposition_player}}', attackingPlayer);
+                                    addCommentary(saveText, formatTime(currentMinute, seconds), 3);
+                                } else {
+                                    const missText = getRandomItem(events.miss)
+                                        .replace('{{team}}', attackingTeamDisplay)
+                                        .replace('{{player}}', attackingPlayer);
+                                    addCommentary(missText, formatTime(currentMinute, seconds), 3);
+                                }
+                            }, currentInterval / 3);
+                        }
+                        else if (Math.random() < 0.35) {
+                            const cornerText = getRandomItem(events.corner)
+                                .replace('{{team}}', attackingTeamDisplay)
+                                .replace('{{player}}', getTeamPlayer(attackingTeamDisplay));
+                            addCommentary(cornerText, formatTime(currentMinute, seconds), 2);
+                        }
+                        else {
+                            const defenseText = getRandomItem(events.defense)
+                                .replace('{{team}}', defendingTeamDisplay)
+                                .replace('{{player}}', defendingPlayer);
+                            addCommentary(defenseText, formatTime(currentMinute, seconds), 2);
+                        }
+                    }, currentInterval / 4);
+                }
+            } else {
+                eventType = 'possession';
+                eventText = getRandomItem(events.possession)
+                    .replace('{{team}}', attackingTeamDisplay)
+                    .replace('{{player}}', attackingPlayer);
+                eventImportance = 1;
+            }
+            addCommentary(eventText, formatTime(currentMinute, seconds), eventImportance);
+
+            if (Math.random() * 100 < foulChance && !['goal', 'save', 'miss'].includes(eventType)) {
+                setTimeout(() => {
+                    if (!isMatchRunning || isMatchPaused || isMatchOver) return;
+                    const foulingTeamDisplay = Math.random() < 0.8 ? defendingTeamDisplay : attackingTeamDisplay;
+                    const oppositionTeamDisplay = foulingTeamDisplay === homeTeam ? awayTeam : homeTeam;
+                    const foulingPlayer = getTeamPlayer(foulingTeamDisplay);
+                    const oppositionPlayer = getTeamPlayer(oppositionTeamDisplay);
+
+                    const foulText = getRandomItem(events.foul)
+                        .replace('{{team}}', foulingTeamDisplay)
+                        .replace('{{player}}', foulingPlayer)
+                        .replace('{{opposition_team}}', oppositionTeamDisplay)
+                        .replace('{{opposition_player}}', oppositionPlayer);
+                    addCommentary(foulText, formatTime(currentMinute, seconds), 2);
+
+                    if (Math.random() * 100 < yellowCardChance) {
+                        setTimeout(() => {
+                            if (!isMatchRunning || isMatchPaused || isMatchOver) return;
+                            const yellowText = getRandomItem(events.yellow)
+                                .replace('{{team}}', foulingTeamDisplay)
+                                .replace('{{player}}', foulingPlayer);
+                            addCommentary(yellowText, formatTime(currentMinute, seconds), 3);
+                        }, currentInterval / 5);
+                    }
+                }, currentInterval / 3);
+            }
+        }
+
+
+        // (Function updateMatchState remains the same logic)
+        function updateMatchState() {
+            if (isMatchPaused || isMatchOver) return;
+            const secondsPerTick = 60 / (currentInterval / 1000 * (90 / MATCH_DURATION));
+            seconds += Math.round(secondsPerTick);
+            if (seconds >= 60) { currentMinute++; seconds %= 60; }
+            currentMinute = Math.min(currentMinute, MATCH_DURATION);
+            matchTimeElement.textContent = formatTime(currentMinute, seconds);
+
+            if (currentMinute === 45 && !isMatchPaused && matchTimer) {
+                 pauseMatch();
+                 const htText = getRandomItem(events.halftime)
+                     .replace('{{home_team}}', selectedHomeTeam)
+                     .replace('{{away_team}}', selectedAwayTeam)
+                     .replace('{{home_score}}', homeScore)
+                     .replace('{{away_score}}', awayScore);
+                 addCommentary(htText, formatTime(45, 0), 3);
+                 addCommentary("Second half resuming shortly...", formatTime(45, 0), 1);
+                 setTimeout(() => { if (!isMatchOver) resumeMatch(); }, BASE_INTERVAL * 2.5);
+            }
+            else if (currentMinute >= MATCH_DURATION) { endMatch(); }
+            else { generateMatchEvent(); }
+        }
+
+        // --- Match Control Functions ---
+        // (Functions startMatch, pauseMatch, resumeMatch, speedUp, slowDown, resetMatch, endMatch remain the same logic)
+         function startMatch() {
+            selectedHomeTeam = homeTeamSelect.value;
+            selectedAwayTeam = awayTeamSelect.value;
+            if (selectedHomeTeam === selectedAwayTeam) {
+                 alert("Please select two different teams.");
+                 return;
+            }
+            console.log(`Starting Match: ${selectedHomeTeam} vs ${selectedAwayTeam}`);
+            if (matchTimer) clearInterval(matchTimer);
+            matchTimer = null; currentMinute = 0; seconds = 0; homeScore = 0; awayScore = 0;
+            commentaryLog = []; highlightEntries = []; commentaryBox.innerHTML = '';
+            highlightsListElement.innerHTML = ''; highlightsContainer.style.display = 'none';
+            homeScoreElement.innerText = '0'; awayScoreElement.innerText = '0';
+            matchTimeElement.textContent = '00:00';
+            homeTeam = selectedHomeTeam;
+            awayTeam = selectedAwayTeam;
+            homeTeamNameElement.innerText = homeTeam;
+            awayTeamNameElement.innerText = awayTeam;
+            currentInterval = BASE_INTERVAL;
+
+            teamSelection.style.display = 'none'; startPanel.style.display = 'none';
+            matchContainer.style.display = 'block';
+            pauseButton.disabled = false; resumeButton.disabled = true;
+            speedUpButton.disabled = (currentInterval === MIN_INTERVAL);
+            slowDownButton.disabled = (currentInterval === MAX_INTERVAL);
+            resetMatchButton.disabled = false;
+            updateStatus('live');
+
+            isMatchRunning = true; isMatchPaused = false; isMatchOver = false;
+            addCommentary(`>>> Match Kick-off: ${homeTeam} vs ${awayTeam}! <<<`, '00:00', 2);
+            matchTimer = setInterval(updateMatchState, currentInterval);
+        }
+         function pauseMatch() {
+             if (!isMatchRunning || isMatchPaused || isMatchOver) return;
+             isMatchPaused = true; clearInterval(matchTimer); matchTimer = null;
+             pauseButton.disabled = true; resumeButton.disabled = false;
+             updateStatus('paused');
+             addCommentary("--- Match Paused ---", formatTime(currentMinute, seconds), 1);
+             console.log("Match Paused");
+        }
+         function resumeMatch() {
+            if (!isMatchRunning || !isMatchPaused || isMatchOver) return;
+             isMatchPaused = false; if (matchTimer) clearInterval(matchTimer);
+             matchTimer = setInterval(updateMatchState, currentInterval);
+             pauseButton.disabled = false; resumeButton.disabled = true;
+             updateStatus('live');
+             addCommentary("--- Match Resumed ---", formatTime(currentMinute, seconds), 1);
+             console.log("Match Resumed");
+        }
+        function speedUp() {
+             if (isMatchOver || currentInterval === MIN_INTERVAL) return;
+             currentInterval = Math.max(MIN_INTERVAL, currentInterval / 1.5);
+             console.log(`Speed increased. Interval: ${currentInterval}ms`);
+             addCommentary(`Simulation speed increased.`, formatTime(currentMinute, seconds), 1);
+             slowDownButton.disabled = false;
+             if (currentInterval === MIN_INTERVAL) speedUpButton.disabled = true;
+             if (isMatchRunning && !isMatchPaused) {
+                 clearInterval(matchTimer); matchTimer = setInterval(updateMatchState, currentInterval);
+             }
+        }
+        function slowDown() {
+             if (isMatchOver || currentInterval === MAX_INTERVAL) return;
+             currentInterval = Math.min(MAX_INTERVAL, currentInterval * 1.5);
+             console.log(`Speed decreased. Interval: ${currentInterval}ms`);
+             addCommentary(`Simulation speed decreased.`, formatTime(currentMinute, seconds), 1);
+             speedUpButton.disabled = false;
+             if (currentInterval === MAX_INTERVAL) slowDownButton.disabled = true;
+             if (isMatchRunning && !isMatchPaused) {
+                 clearInterval(matchTimer); matchTimer = setInterval(updateMatchState, currentInterval);
+             }
+        }
+         function resetMatch() {
+             console.log("Resetting Match...");
+             if (matchTimer) clearInterval(matchTimer); matchTimer = null;
+             isMatchRunning = false; isMatchPaused = false; isMatchOver = true;
+             teamSelection.style.display = 'flex'; startPanel.style.display = 'flex';
+             matchContainer.style.display = 'none'; highlightsContainer.style.display = 'none';
+             pauseButton.disabled = true; resumeButton.disabled = true;
+             speedUpButton.disabled = true; slowDownButton.disabled = true;
+             resetMatchButton.disabled = true;
+             currentMinute = 0; seconds = 0; homeScore = 0; awayScore = 0;
+             commentaryLog = []; highlightEntries = []; homeTeam = ""; awayTeam = "";
+             selectedHomeTeam = ""; selectedAwayTeam = "";
+             homeScoreElement.innerText = '0'; awayScoreElement.innerText = '0';
+             matchTimeElement.textContent = '00:00'; commentaryBox.innerHTML = '';
+             highlightsListElement.innerHTML = '';
+             updateStatus('waiting');
+         }
+        function endMatch() {
+            if (isMatchOver) return;
+            console.log("Match Ended");
+            isMatchRunning = false; isMatchPaused = false; isMatchOver = true;
+            clearInterval(matchTimer); matchTimer = null;
+             const ftText = getRandomItem(events.fulltime)
+                 .replace('{{home_team}}', selectedHomeTeam)
+                 .replace('{{away_team}}', selectedAwayTeam)
+                 .replace('{{home_score}}', homeScore)
+                 .replace('{{away_score}}', awayScore);
+             addCommentary(ftText, formatTime(MATCH_DURATION, 0), 4);
+             pauseButton.disabled = true; resumeButton.disabled = true;
+             speedUpButton.disabled = true; slowDownButton.disabled = true;
+             resetMatchButton.disabled = false;
+             updateStatus('ended');
+             showHighlights();
+        }
+
+        // (Function showHighlights remains the same logic)
+        function showHighlights() {
+             highlightsListElement.innerHTML = '';
+             if (highlightEntries.length === 0) {
+                 highlightsListElement.innerHTML = '<p>NO MAJOR HIGHLIGHTS.</p>';
+             } else {
+                 highlightEntries.sort((a, b) => {
+                     if (b.importance !== a.importance) return b.importance - a.importance;
+                     const timeA = parseInt(a.time.split(':')[0]) * 60 + parseInt(a.time.split(':')[1]);
+                     const timeB = parseInt(b.time.split(':')[0]) * 60 + parseInt(b.time.split(':')[1]);
+                     return timeA - timeB;
+                 });
+                 highlightEntries.forEach(entry => {
+                     const highlightDiv = document.createElement('div');
+                     highlightDiv.classList.add('highlight-entry');
+                     let starRating = '';
+                     // Using asterisks for subtle highlights
+                     if (entry.importance >= 5) starRating = '<span class="star-rating">***</span>';
+                     else if (entry.importance === 4) starRating = '<span class="star-rating">**</span>';
+                     else if (entry.importance === 3) starRating = '<span class="star-rating">*</span>';
+                     highlightDiv.innerHTML = `[${entry.time}] ${entry.text} ${starRating}`;
+                     if (entry.isAI) {
+                         highlightDiv.style.color = '#80ffff'; // Lighter Cyan
+                         // Italic might not render well
+                     }
+                     highlightsListElement.appendChild(highlightDiv);
+                 });
+             }
+             highlightsContainer.style.display = 'block';
+        }
+
+        // --- Initialization ---
+        // (Function initLoadingScreen remains the same logic)
+        function initLoadingScreen() {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += getRandomNumber(5, 15);
+                progress = Math.min(progress, 100);
+                loadingBar.style.width = progress + '%';
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    loadingScreen.style.transition = 'opacity 0.5s ease-out';
+                    loadingScreen.style.opacity = '0';
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                        mainContent.style.display = 'block';
+                        updateStatus('waiting');
+                        // Set initial selected teams after loading
+                        selectedHomeTeam = homeTeamSelect.value;
+                        selectedAwayTeam = awayTeamSelect.value;
+                    }, 500);
+                }
+            }, 150);
+        }
+
+        // (Function handleTeamSelectionChange remains the same logic)
+         function handleTeamSelectionChange() {
+             const homeValue = homeTeamSelect.value;
+             const awayValue = awayTeamSelect.value;
+             if (homeValue === awayValue) {
+                 alert("Teams cannot be the same. Please select a different team.");
+                 if (this === homeTeamSelect) {
+                     for (let i = 0; i < awayTeamSelect.options.length; i++) {
+                         if (awayTeamSelect.options[i].value !== homeValue) { awayTeamSelect.selectedIndex = i; break; }
+                     }
+                 } else {
+                      for (let i = 0; i < homeTeamSelect.options.length; i++) {
+                         if (homeTeamSelect.options[i].value !== awayValue) { homeTeamSelect.selectedIndex = i; break; }
+                     }
+                 }
+             }
+             // Update selected team state when dropdown changes
+             selectedHomeTeam = homeTeamSelect.value;
+             selectedAwayTeam = awayTeamSelect.value;
+         }
+
+        // --- Event Listeners ---
+        startMatchButton.addEventListener('click', startMatch);
+        pauseButton.addEventListener('click', pauseMatch);
+        resumeButton.addEventListener('click', resumeMatch);
+        speedUpButton.addEventListener('click', speedUp);
+        slowDownButton.addEventListener('click', slowDown);
+        resetMatchButton.addEventListener('click', resetMatch);
+        homeTeamSelect.addEventListener('change', handleTeamSelectionChange);
+        awayTeamSelect.addEventListener('change', handleTeamSelectionChange);
+
+        // --- Page Load ---
+        window.onload = initLoadingScreen;
+
+    </script>
+</body>
+</html>
